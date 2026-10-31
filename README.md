@@ -108,3 +108,5 @@ HL7® and FHIR® are registered trademarks of Health Level Seven International. 
 Educational software with synthetic data only. Not a medical device, not for clinical use, and not tested for production or HIPAA compliance. Never load real patient data (PHI). Provided "as is" without warranty, as stated in the license.
 
 Contributions: see CONTRIBUTING.md (no outside pull requests for now). Lab solutions, lesson text and videos are not part of this kit; they are in the paid AckHarbor™ Healthcare Agents Course (all rights reserved).
+
+More free tools and training at [ackharbor.com](https://ackharbor.com).
