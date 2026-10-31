@@ -1,0 +1,8 @@
+{
+  "_note": "Synthetic intake form for the demo. Made-up person, plan and member id. Never put real patient data here.",
+  "mrn": "SYN-100002", "family": "EXAMPLE", "given": "JORDAN", "birthDate": "1979-07-04", "sex": "M",
+  "address": { "line": "40 Sample Street", "city": "Testville", "state": "NJ", "zip": "07000" }, "phone": "555-0101",
+  "reason": "New patient visit",
+  "insurance": { "payerId": "SYNPAYER1", "payerName": "Sandbox Health Plan", "planId": "GOLD-PPO", "planName": "Gold PPO (synthetic)", "memberId": "SYN-MBR-55501", "relationship": "self", "effective": "2026-01-01" },
+  "medications": [ { "code": "314076", "name": "Lisinopril 10 MG Oral Tablet", "sig": "Take 1 tablet by mouth once daily" } ]
+}

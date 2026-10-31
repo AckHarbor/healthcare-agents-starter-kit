@@ -1,0 +1,11 @@
+AckHarbor™ starter kit
+Copyright 2026 DaRider Tech LLC
+
+This product includes software developed by DaRider Tech LLC (AckHarbor™).
+Licensed under the Apache License, Version 2.0 (see LICENSE).
+
+AckHarbor™ is a trademark of DaRider Tech LLC. The license does not grant rights to use the AckHarbor name or logo.
+
+This kit does not bundle any third-party code. It is used with HAPI FHIR (Apache License 2.0), which you download
+separately; HAPI FHIR's own NOTICE and license files ship inside its distribution and are not changed by this kit.
+See THIRD_PARTY_NOTICES.md.

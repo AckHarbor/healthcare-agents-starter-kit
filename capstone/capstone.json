@@ -1,0 +1,14 @@
+{
+  "_note": "Fill this in for your capstone. Synthetic data only: every identifier must start with SYN-.",
+  "title": "Waitlist backfill agent",
+  "agentName": "waitlist",
+  "author": "Your name",
+  "brief": "waitlist-backfill",
+  "goodMessage": "capstone/samples/good.hl7",
+  "badMessage": "capstone/samples/bad.hl7",
+  "badExpect": { "ack": "AE", "code": "101" },
+  "run": "node capstone/agent.mjs",
+  "fhirResources": ["Appointment", "Slot"],
+  "humanApproval": ["Anything clinical, any message to a patient (logged as would-send only)"],
+  "recording": "capstone/recording.mp4 or a private link"
+}

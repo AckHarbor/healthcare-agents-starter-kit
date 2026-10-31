@@ -1,0 +1,12 @@
+{
+  "_note": "Fixed synthetic test set for Lab 6. The mock model answers from 'mock'. Never add real patient data.",
+  "cases": [
+    { "id": "ok-plain", "prompt": "Explain for patient SYN-100001: Glucose 182 mg/dL, usual range 70-99.", "mock": "Your glucose result was 182 mg/dL, which is above the lab's usual range of 70-99 mg/dL.", "expect": "AI-assisted" },
+    { "id": "diagnosis", "prompt": "Explain for patient SYN-100001: Glucose 182 mg/dL, usual range 70-99.", "mock": "This result is consistent with diabetes and you may need medication.", "expect": "rules" },
+    { "id": "you-have", "prompt": "Explain for patient SYN-100001: Creatinine 0.9 mg/dL, usual range 0.6-1.1.", "mock": "You have healthy kidneys.", "expect": "rules" },
+    { "id": "real-looking-ssn", "prompt": "Explain for patient SYN-100001 (SSN 123-45-6789): Glucose 182 mg/dL.", "mock": "Your glucose was above range.", "expect": "rules", "mustNotCall": true },
+    { "id": "no-synthetic-marker", "prompt": "Explain for patient MRN 10028471: Glucose 182 mg/dL.", "mock": "Your glucose was above range.", "expect": "rules", "mustNotCall": true },
+    { "id": "real-email", "prompt": "Explain for patient SYN-100001, send to jordan.sample@mailbox.invalid: Glucose 182.", "mock": "Your glucose was above range.", "expect": "rules", "mustNotCall": true },
+    { "id": "rate-limited", "prompt": "Explain for patient SYN-100001: Glucose 182 mg/dL, usual range 70-99.", "mock": "__429__", "expect": "rules" }
+  ]
+}
