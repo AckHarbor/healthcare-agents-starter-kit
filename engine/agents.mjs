@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 // Copyright 2026 DaRider Tech LLC
 // SPDX-License-Identifier: Apache-2.0
-// AckHarbor(TM) Harbor Engine demo agents (rule-based, local, synthetic data only). Usage: node agents.mjs <agent> [args]
+// AckHarbor(TM) Harbor Engine agents CLI (rule-based, local, synthetic data only). Usage: node agents.mjs <agent> [args]
+// In the free kit: seed, explain-lab and explain-ack run. The scheduling, reminder and clinic agents are built in Modules 4 and 5
+// of the AckHarbor(TM) Healthcare Agents Course; here they print one line saying so.
 //   seed                                   Practitioners, Schedules, free Slots (next 7 days, closed Sundays)
 //   schedule "book SYN-100001 with Dr. Rivera tomorrow morning for follow-up"
 //   remind [hours]                         compose reminders (logged as would-send, never sent)

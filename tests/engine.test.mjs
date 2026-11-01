@@ -60,9 +60,9 @@ import { scheduleAgent, rescheduleAgent, reminderAgent } from '../engine/agents/
 import { mapOrmO01, mapOruR01 } from '../engine/lib/map.mjs';
 import { explainReport, NOTE } from '../engine/agents/lab-explainer.mjs';
 
-test('request parser: MRN, doctor, weekday, part of day', () => {
-  const now = new Date(2026, 9, 31, 2, 0); const q = parseRequest('book SYN-100001 with Dr. Rivera monday morning for follow-up', now);
-  assert.equal(q.mrn, 'SYN-100001'); assert.equal(q.name, 'Rivera'); assert.equal(q.from.getDate(), 2); assert.equal(q.to.getHours(), 12); assert.equal(q.reason, 'follow-up');
+test('free kit: booking, request parsing and the scheduling agents say clearly they are built in the course', async () => {
+  assert.throws(() => parseRequest('book SYN-100001 with Dr. Rivera'), e => e.code === 'COURSE_ONLY' && /Module 4/.test(e.message));
+  for (const f of [scheduleAgent, rescheduleAgent, reminderAgent]){ const r = await f(); assert.equal(r.ok, false); assert.equal(r.courseOnly, true); assert.match(r.say, /Module 4/); }
 });
 test('ORM^O01 -> ServiceRequest; ORU^R01 -> Observations + DiagnosticReport linked to Patient', () => {
   const o = mapOrmO01(parse(sample('orm-o01.hl7'))).bundle.entry; assert.equal(o[1].resource.resourceType, 'ServiceRequest'); assert.equal(o[1].resource.subject.reference, o[0].fullUrl); assert.equal(o[1].resource.code.coding[0].code, '2345-7'); assert.equal(o[1].resource.requester.display, 'Dr. ALEX RIVERA');
@@ -79,23 +79,16 @@ test('lab explainer: range wording, no diagnosis, always the talk-to-your-doctor
   assert.match(e.lines[0], /above the lab's usual range/); assert.equal(e.note, NOTE); assert.doesNotMatch(JSON.stringify(e), /diabet|disease|you have/i);
 });
 
-test('live: seed, book a free Slot -> Appointment booked + Slot busy + SIU^S12 AA; reschedule S14; lab ORM/ORU AA', { skip: !live && 'local FHIR server not running' }, async () => {
+test('live: seed is idempotent and leaves free Slots; SIU for an unknown appointment -> AE 204; lab ORM/ORU AA', { skip: !live && 'local FHIR server not running' }, async () => {
   const fhir = fhirClient(BASE); process.env.AH_QUIET = '1'; process.env.AH_AGENT_LOG = '/tmp/ah-test-agent-log.jsonl';
   const srv = await startMllpServer({ port: 0, fhir, logFile: '' }); const port = srv.address().port; const send = m => sendMllp(m, { port });
   try {
     assert.equal(ackOf(await send(sample('adt-a01.hl7'))), 'AA');
-    await seed(fhir, { days: 7 }); await seed(fhir, { days: 7 }); // idempotent
-    const prac = await findPractitioner(fhir, { name: 'Lee' }); const start = new Date(Date.now() + 86400000), end = new Date(start.getTime() + 6 * 86400000);
-    const before = await freeSlots(fhir, prac.schedule, start, end, 500);
-    const r = await scheduleAgent(fhir, { mrn: 'SYN-100001', name: 'Lee', from: start, to: end, reason: 'Test visit' }, { send });
-    assert.equal(r.code, 'AA', r.say); assert.equal(r.appt.status, 'booked');
-    const slot = await fhir.get('Slot/' + r.appt.slot.id); assert.equal(slot.status, 'busy');
-    const got = await fhir.get('Appointment/' + r.appt.id); assert.equal(got.participant[0].actor.reference.startsWith('Patient/'), true);
-    assert.equal((await freeSlots(fhir, prac.schedule, start, end, 500)).length, before.length - 1);
-    const mv = await rescheduleAgent(fhir, { apptId: r.appt.apptId }, { send }); assert.equal(mv.code, 'AA', mv.say);
-    assert.equal((await fhir.get('Slot/' + r.appt.slot.id)).status, 'free'); assert.match(mv.wouldSend, /moved/);
-    const rem = await reminderAgent(fhir, { hours: 24 * 8 }); assert.ok(rem.reminders.length >= 1);
-    const bogus = r.siu.replace(r.appt.apptId, 'SYN-APT-NOPE'); const na = await send(bogus); assert.equal(ackOf(na), 'AE'); assert.equal(parse(na).get('ERR-3.1'), '204');
+    await seed(fhir, { days: 7 }); const prac = await findPractitioner(fhir, { name: 'Lee' }); const start = new Date(Date.now() + 86400000), end = new Date(start.getTime() + 6 * 86400000);
+    const before = (await freeSlots(fhir, prac.schedule, start, end, 500)).length; await seed(fhir, { days: 7 }); // idempotent
+    assert.equal((await freeSlots(fhir, prac.schedule, start, end, 500)).length, before);
+    const na = await send('MSH|^~\\&|ACKHARBOR_SCHED|ACKHARBOR|ACKHARBOR_ENGINE|ACKHARBOR|20261031090000||SIU^S12^SIU_S12|SYNSIU0000405|P|2.5.1\rSCH|SYN-APT-NOPE^ACKHARBOR\rPID|1||SYN-100001^^^ACKHARBOR^MR||SAMPLE^AVERY\r');
+    assert.equal(ackOf(na), 'AE'); assert.equal(parse(na).get('ERR-3.1'), '204');
     assert.equal(ackOf(await send(sample('orm-o01.hl7'))), 'AA'); assert.equal(ackOf(await send(sample('oru-r01.hl7'))), 'AA');
     const [dr] = await fhir.search('DiagnosticReport?identifier=urn:ackharbor:sandbox:filler-order%7CSYN-LAB-9001'); assert.equal(dr.result.length, 2); assert.match(dr.basedOn[0].reference, /^ServiceRequest\//);
     const p = (await fhir.search('Patient?identifier=urn:ackharbor:sandbox:mrn%7CSYN-100001'))[0]; assert.equal(dr.subject.reference, 'Patient/' + p.id);
@@ -104,33 +97,18 @@ test('live: seed, book a free Slot -> Appointment booked + Slot busy + SIU^S12 A
 
 // ---- Clinic agents: intake, referral, eligibility, prior auth, refill, discharge, support ----
 import * as C from '../engine/agents/clinic.mjs';
-test('X12 270 -> mock payer 271 -> parsed benefits; unknown member rejected (AAA 75)', () => {
+test('X12 270 -> mock payer 271 (active member EB*1; unknown member AAA 75); reading the 271 is built in the course', () => {
   const p = { name: [{ family: 'EXAMPLE', given: ['JORDAN'] }], birthDate: '1979-07-04' };
   const x = C.build270(p, { subscriberId: 'SYN-MBR-55501', payor: [{ display: 'Sandbox Health Plan' }] }, { date: new Date(2026, 9, 31, 9, 0), ctl: '000000001' });
   assert.match(x, /^ISA\*/); assert.match(x, /ST\*270\*0001\*005010X279A1~/); assert.match(x, /NM1\*IL\*1\*EXAMPLE\*JORDAN\*{4}MI\*SYN-MBR-55501~/); assert.match(x, /EQ\*30~/);
-  const ok = C.parse271(C.mockPayer271(x)); assert.equal(ok.active, true); assert.deepEqual(ok.benefits.filter(b => b.amount).map(b => [b.code, b.amount]), [['B', 25], ['C', 500], ['G', 1200]]);
-  const bad = C.parse271(C.mockPayer271(x.replace('SYN-MBR-55501', 'XYZ123'))); assert.equal(bad.active, false); assert.equal(bad.reject.code, '75');
+  assert.match(C.mockPayer271(x), /EB\*1\*IND\*30\*\*GOLD PPO \(SYNTHETIC\)~/); assert.match(C.mockPayer271(x.replace('SYN-MBR-55501', 'XYZ123')), /AAA\*Y\*\*75\*C~/);
+  assert.throws(() => C.parse271('ST*271~'), e => e.code === 'COURSE_ONLY');
 });
 test('A01 with IN1 -> Coverage; A03 without prior Encounter -> AE 204', async () => {
   const { bundle } = mapAdtA01(parse(sample('adt-a01.hl7'))); const c = bundle.entry.find(e => e.resource.resourceType === 'Coverage');
   assert.equal(c.resource.subscriberId, 'SYN-MBR-55500'); assert.equal(c.resource.beneficiary.reference, bundle.entry[0].fullUrl); assert.equal(c.resource.relationship.coding[0].code, 'self');
   const a = await handleMessage(sample('adt-a03.hl7'), { fhir: { search: async () => [] } }); assert.equal(ackOf(a), 'AE'); assert.equal(parse(a).get('ERR-3.1'), '204');
 });
-test('live: intake A04 -> Patient + Coverage; eligibility; refill queued as draft; referral books specialist; prior-auth draft; discharge A03 + follow-up', { skip: !live && 'local FHIR server not running' }, async () => {
-  const fhir = fhirClient(BASE); process.env.AH_QUIET = '1'; process.env.AH_AGENT_LOG = '/tmp/ah-test-agent-log.jsonl';
-  const srv = await startMllpServer({ port: 0, fhir, logFile: '' }); const send = m => sendMllp(m, { port: srv.address().port });
-  try {
-    await seed(fhir, { days: 7 }); assert.equal(ackOf(await send(sample('adt-a01.hl7'))), 'AA');
-    const form = { ...JSON.parse(sample('intake-form.json')), mrn: 'SYN-199001' };
-    const i = await C.intakeAgent(fhir, form, { send }); assert.equal(i.code, 'AA', i.say); assert.match(i.a04, /ADT\^A04/);
-    const [cov] = await fhir.search(`Coverage?beneficiary=Patient/${i.patient.id}`); assert.equal(cov.subscriberId, 'SYN-MBR-55501');
-    const e = await C.eligibilityAgent(fhir, 'SYN-199001'); assert.equal(e.ok, true, e.say);
-    const r = await C.refillAgent(fhir, 'SYN-199001 lisinopril'); assert.equal(r.ok, true, r.say);
-    const [q] = await fhir.search(`MedicationRequest?subject=Patient/${i.patient.id}&status=draft`); assert.ok(q.priorPrescription.reference.startsWith('MedicationRequest/')); assert.match(q.note[0].text, /CLINICIAN APPROVAL/);
-    const ref = await C.referralAgent(fhir, 'SYN-199001 to cardiology for palpitations', { send }); assert.equal(ref.code, 'AA', ref.say); assert.equal(ref.appt.basedOn[0].reference, ref.referral);
-    const pa = await C.priorAuthAgent(fhir, 'SYN-199001'); assert.equal(pa.ok, true, pa.say); assert.match(pa.letter, /NOT SUBMITTED/);
-    const d = await C.dischargeAgent(fhir, sample('adt-a03.hl7'), { send }); assert.equal(d.ok, true, d.say);
-    const [enc] = await fhir.search('Encounter?identifier=urn:ackharbor:sandbox:visit%7CSYN-V-500001'); assert.equal(enc.status, 'finished'); assert.equal(enc.period.end, '2026-10-31T15:00:00-04:00');
-    assert.match(d.instructions, /follow-up visit/);
-  } finally { srv.close(); }
+test('free kit: the six clinic agents say clearly they are built in the course', async () => {
+  for (const f of [C.intakeAgent, C.referralAgent, C.eligibilityAgent, C.priorAuthAgent, C.refillAgent, C.dischargeAgent]){ const r = await f(); assert.equal(r.ok, false); assert.equal(r.courseOnly, true); assert.match(r.say, /Module 5/); }
 });

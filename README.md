@@ -10,13 +10,25 @@ Everything runs on your own computer, bound to 127.0.0.1. It costs $0 and needs 
 
 | Folder | What it is |
 |---|---|
-| `engine/` | The working AckHarbor™ Harbor Engine: MLLP listener, HL7 v2 → FHIR R4 mapping, ACK/NACK, 9 rule-based agents, the AckHarbor™ Demo EMR view, optional AI layer (off) |
+| `engine/` | The working AckHarbor™ Harbor Engine: MLLP listener, HL7 v2 → FHIR R4 mapping, ACK/NACK, scheduling building blocks (seed, free-slot search, SIU messages), a local mock payer (X12 270/271), the lab results explainer and interface support agents, the AckHarbor™ Demo EMR view, optional AI layer (off) |
 | `labs/lab1` … `labs/lab6` | One folder per lab. Files with `TODO` are yours to complete |
 | `checks/` | `check-m1.mjs` … `check-m6.mjs`, `check-capstone.mjs`, `check-all.mjs`: run them to see PASS/FAIL |
 | `capstone/` | Capstone template: manifest, README template, sample good/bad messages, agent skeleton |
 | `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, `CONTRIBUTING.md`, `.env.example` | Apache License 2.0; notices; third-party notices (HAPI FHIR); contributions policy; settings template |
 
 Lab solutions are not in this free kit; they are shown online in the paid course.
+
+### What you build in the course
+
+The scheduling agent and the six clinic agents (intake, referral, eligibility, prior auth drafts, refills and discharge follow-up) are not in this kit: you build them. When you run them here, they print one line saying which module covers them. The finished scheduling agent books a free Slot in the Demo EMR and gets an AA back for its SIU^S12:
+
+```text
+MSA|AA|SIUMVWOHI901|Accepted: SIU S12 for Appointment/1242 (booked, 2026-11-05T13:00:00-05:00)
+```
+
+The hard parts are the ones the lessons walk through: two bookings racing for the same slot, a 409 or 412 coming back mid-booking, when an agent must stop and ask a person, and when the receiver should answer AE or AR instead of AA.
+
+Build them step by step in Modules 4 and 5 of the [AckHarbor™ Healthcare Agents Course](https://ackharbor.com/healthcare-agents/).
 
 ## 1. Install (free)
 

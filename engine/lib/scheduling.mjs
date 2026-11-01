@@ -1,9 +1,9 @@
 // Copyright 2026 DaRider Tech LLC
 // SPDX-License-Identifier: Apache-2.0
-// Scheduling building blocks for the demo agents: seed Practitioners/Schedules/free Slots, find a free Slot,
-// book it atomically (Appointment create + Slot busy with If-Match in one transaction), and build SIU messages.
+// Scheduling building blocks: seed Practitioners/Schedules/free Slots, find patients, practitioners and free Slots, and build SIU messages.
+// Booking and request parsing are built in Module 4 of the AckHarbor(TM) Healthcare Agents Course (labs/lab4/booking.mjs).
 import { randomUUID } from 'node:crypto';
-import { SYS } from './map.mjs'; import { escape, hl7Now, newControlId, fhirToTs } from './hl7.mjs';
+import { SYS } from './map.mjs'; import { courseOnly } from './course-only.mjs'; import { escape, hl7Now, newControlId, fhirToTs } from './hl7.mjs';
 
 export const PRACTITIONERS = [ // synthetic staff
   { key: 'D9001', family: 'RIVERA', given: 'ALEX', specialty: ['419772000', 'Family practice'], label: 'Dr. Alex Rivera' },
@@ -48,24 +48,8 @@ export async function freeSlots(fhir, schedule, from, to, max = 50){
   return fhir.search(`Slot?schedule=Schedule/${schedule.id}&status=free&start=ge${encodeURIComponent(localIso(from))}&start=lt${encodeURIComponent(localIso(to))}&_sort=start&_count=${max}`, max);
 }
 
-// Books slot for patient atomically. Retries the next free slot if someone else took it (HTTP 409/412).
-export async function book(fhir, { patient, prac, slots, reason = 'Office visit', basedOn = null, apptType = 'ROUTINE' }){
-  for (const slot of slots){
-    const apptId = 'SYN-APT-' + randomUUID().slice(0, 8).toUpperCase();
-    const appt = { resourceType: 'Appointment', meta: tag, identifier: [{ system: SYS.appt, value: apptId }], status: 'booked',
-      appointmentType: { coding: [{ system: 'http://terminology.hl7.org/CodeSystem/v2-0276', code: apptType }] }, description: reason,
-      ...(basedOn ? { basedOn: [{ reference: basedOn }] } : {}), slot: [{ reference: 'Slot/' + slot.id }], start: slot.start, end: slot.end, minutesDuration: Math.round((new Date(slot.end) - new Date(slot.start)) / 60000), created: localIso(new Date()).slice(0, 10),
-      participant: [{ actor: { reference: 'Patient/' + patient.id, display: patientName(patient) }, status: 'accepted' }, { actor: { reference: 'Practitioner/' + prac.practitioner.id, display: prac.label }, status: 'accepted' }] };
-    const busy = { ...slot, status: "busy" };
-    try {
-      const r = await fhir.transaction({ resourceType: 'Bundle', type: 'transaction', entry: [
-        { request: { method: 'POST', url: 'Appointment' }, resource: appt },
-        { request: { method: 'PUT', url: 'Slot/' + slot.id, ifMatch: `W/"${slot.meta.versionId}"` }, resource: { ...busy, meta: tag } } ] });
-      const loc = r.entry[0].response.location.replace(/\/_history.*/, ''); return { ...appt, id: loc.split('/')[1], apptId, slot };
-    } catch (e) { if (e.status === 409 || e.status === 412) continue; throw e; }
-  }
-  return null;
-}
+// Booking a Slot safely is built in Module 4 (Lab 4 "Book it").
+export async function book(){ courseOnly('Booking a Slot (book)', 'Module 4'); }
 export const patientName = p => [p.name?.[0]?.given?.join(' '), p.name?.[0]?.family].filter(Boolean).join(' ');
 
 // SIU^S12 (new) / S14 (modified) / S15 (cancelled)
@@ -79,18 +63,5 @@ export function buildSiu(event, { appt, patient, prac, reason }){
     'RGS|1|A', `AIP|1|A|${prac.key}^${prac.family}^${prac.given}^^^DR|ATND|||${fhirToTs(appt.start)}|||${mins}|MIN`].join('\r') + '\r';
 }
 
-// Very small rule-based request parser: "book SYN-100001 with Dr. Rivera tomorrow afternoon"
-export function parseRequest(text, now = new Date()){
-  const t = String(text); const mrn = (t.match(/\bSYN-\d{6}\b/i) || [])[0]?.toUpperCase();
-  const name = (t.match(/\bdr\.?\s+([a-z]+)/i) || [])[1]; const specialty = (t.match(/\b(cardiology|family practice)\b/i) || [])[1];
-  let day = new Date(now.getFullYear(), now.getMonth(), now.getDate()); const iso = t.match(/\b(\d{4})-(\d{2})-(\d{2})\b/);
-  if (iso) day = new Date(+iso[1], +iso[2] - 1, +iso[3]); else if (/\btomorrow\b/i.test(t)) day.setDate(day.getDate() + 1); else if (/\bnext week\b/i.test(t)) day.setDate(day.getDate() + 7);
-  const wd = t.match(/\b(sunday|monday|tuesday|wednesday|thursday|friday|saturday)\b/i);
-  if (wd && !iso){ const want = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'].indexOf(wd[1].toLowerCase()); const add = ((want - day.getDay()) + 7) % 7 || 7; day = new Date(now.getFullYear(), now.getMonth(), now.getDate() + add); }
-  let from = new Date(day), to = new Date(day); to.setHours(23, 59);
-  if (/\bmorning\b/i.test(t)) to.setHours(12, 0); if (/\bafternoon\b/i.test(t)) from.setHours(12, 0);
-  if (!iso && !wd && !/\b(tomorrow|next week|today)\b/i.test(t)) { to = new Date(day); to.setDate(to.getDate() + 14); } // no day given: soonest in 2 weeks
-  if (from < now) from = now;
-  const reason = (t.match(/\bfor\s+(.+?)(?:\s+(?:with|on|tomorrow|today|next|this|monday|tuesday|wednesday|thursday|friday|saturday|sunday|morning|afternoon)\b|$)/i) || [])[1] || 'Office visit';
-  return { mrn, name, specialty, from, to, reason };
-}
+// Turning a front-desk request into who/when is built in Module 4 (Lab 4 parseWhen).
+export function parseRequest(){ courseOnly('The booking request parser (parseRequest)', 'Module 4'); }
