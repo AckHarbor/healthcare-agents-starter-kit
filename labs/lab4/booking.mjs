@@ -1,7 +1,7 @@
 // Copyright 2026 DaRider Tech LLC
 // SPDX-License-Identifier: Apache-2.0
 // Lab 4 "Book it" - complete the TODOs, then run: node checks/check-m4.mjs
-// The working agent is ../../engine/agents/scheduling.mjs + ../../engine/lib/scheduling.mjs. Build the core pieces yourself.
+// Build the core booking pieces yourself, then run the check.
 const TODO = m => { const e = new Error(m); e.code = 'TODO'; throw e; };
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
