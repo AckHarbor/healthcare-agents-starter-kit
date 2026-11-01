@@ -1,7 +1,7 @@
 // Copyright 2026 DaRider Tech LLC
 // SPDX-License-Identifier: Apache-2.0
 // Lab 4 "Book it" - complete the TODOs, then run: node checks/check-m4.mjs
-// Build the core booking pieces yourself, then run the check.
+// Build the core booking pieces yourself, then run the check: it books on your local Demo EMR and races two bookings at the same moment.
 const TODO = m => { const e = new Error(m); e.code = 'TODO'; throw e; };
 const DAYS = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 

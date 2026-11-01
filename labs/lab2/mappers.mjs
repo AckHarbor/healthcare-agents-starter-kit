@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 // Lab 2 "Map it" - complete the TODOs, then run: node checks/check-m2.mjs
 // These are the small, reusable mapping rules every HL7 v2 -> FHIR R4 channel needs.
-// Write your own version of each rule, then run the check.
+// Write your own version of each rule, then run the check: it tests each rule and re-sends a real ADT^A01 to prove you still get exactly one Patient.
 const TODO = m => { const e = new Error(m); e.code = 'TODO'; throw e; };
 export class MapError extends Error { constructor(msg, code, loc){ super(msg); this.code = code; this.loc = loc; } } // code = HL7 table 0357 (101, 102, 103)
 
